@@ -108,12 +108,12 @@ class Game:
         self.pressed[event.char] = False
 
 class Bullet:
-    def __init__(self,canvas,x1,y1,x2,y2):
+    def __init__(self,canvas,startx,startx,clickx,clicky):
         self.canvas = canvas
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
+        self.x1 = startx
+        self.y1 = starty
+        self.x2 = clickx
+        self.y2 = clicky
         self.degs = self.move_degrees(self.x1,self.y1,self.x2,self.y2)
         self.img = self.canvas.create_oval(self.x1,self.y1,self.x1+6,self.y1+3,fill='black')
         self.dmg =  2
