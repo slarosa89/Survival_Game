@@ -1,99 +1,114 @@
 from Tkinter import *
 from math import cos,radians,sin,atan2,degrees,pi
 from random import randint
+from collections import defaultdict
+
 class Game:
     def __init__(self):
         self.pressed = {}
         self.bullets = []
         self.enemies = []
         self._create_ui()
-        self.pause = False
+        self.paused = False
         self.kills = 0
         self.spawn = 1.0
 
     def start(self):
-        self._animate()
+        self.player = Player(self.canvas,x=250,y=250)
+        self._add_enemy()
+        self._animation_loop()
         self.root.mainloop()
 
     def _create_ui(self):
         self.root = Tk()
         self.canvas = Canvas(width=500,height=500)
         self.canvas.pack()
-        self.player = Player(self.canvas,x=250,y=250)
+
         self._set_bindings()
     
     def _animate(self):
-        if not any(self.pressed[c] for c in 'wasd'):
-            pass
-        else:
-            if self.pressed["w"]: self.player.move_up()
-            if self.pressed["s"]: self.player.move_down()
-            if self.pressed["a"]: self.player.move_left()
-            if self.pressed["d"]: self.player.move_right()
-            self.player.redraw()
-        for e in self.enemies:
-            if e.contains_point(self.player.x,self.player.y):
-                print "YOU LOST\nKILLS: {}".format(self.kills)
-                self.root.unbind("<ButtonPress-1>")
-                self.root.unbind("<ButtonPress-3>")
-                self.root.unbind("<Enter>")
-                self.root.unbind("<Leave>")
-                self.root.unbind("<space>")
-                return False
-            e.redraw()
-
-        for b in self.bullets:
-            
-            if ( 0 <= b.x1 <= 500 and 0 <= b.y1 <= 500):
-                for e in self.enemies:
-                    if e.contains_point(b.x1,b.y1):
-                        e.hurt(b.dmg)
-                        b.hit = True
-                if b.hit:
-                    self.canvas.delete(b.img)
-                    self.bullets.remove(b)
-                else:
-                    b.redraw()
+        dead = []
+        if not self.paused:
+            if not any(self.pressed[c] for c in 'wasd'):
+                pass
             else:
-                self.canvas.delete(b.img)
-                self.bullets.remove(b)
+                if self.pressed["w"]: self.player.move_up()
+                if self.pressed["s"]: self.player.move_down()
+                if self.pressed["a"]: self.player.move_left()
+                if self.pressed["d"]: self.player.move_right()
+                self.player.redraw()
+            for e in self.enemies:
+                if e.contains_point(self.player.x,self.player.y):
+                    print "YOU LOST\nKILLS: {}".format(self.kills)
+                    self._unset_bindings()
+                    return False
+                e.redraw()
 
-        self.root.after(2,self._paused)
+            for b in self.bullets:            
+                if ( 0 <= b.x1 <= 500 and 0 <= b.y1 <= 500):
+                    for e in self.enemies:
+                        if e.contains_point(b.x1,b.y1):
+                            e.hurt(b.dmg)
+                            if e.dead:
+                                dead.append(e)
+                            b.hit = True
+                    if b.hit:
+                        self.canvas.delete(b.img)
+                        dead.append(b)
+                    else:
+                        b.redraw()
+                else:
+                    dead.append(b)
 
-    def _paused(self):
-        if self.pause:
-            self.root.after(2,self._paused)
-        else:
-            self.root.after(48,self._animate)
+            for thing in dead:
+
+                if isinstance(thing,Enemy):
+                    self.canvas.delete(thing.img)
+                    self.enemies.remove(thing)
+                    self.kills += 1
+                    self.spawn += 0.2
+                    for _ in xrange(int(self.spawn)):
+                        self._add_enemy()
+                else:
+                    self.bullets.remove(thing)
+        return True
+
+    def _animation_loop(self):
+        if self._animate():
+            self.root.after(48, self._animation_loop)
 
     def _change_pause(self,event):
         if event.type == '8':
-            self.pause = True
+            self.paused = True
         elif event.type == '7':
-            self.pause = False
+            self.paused = False
         elif event.type == "2":
-            if self.pause == False:
-                self.pause = True
+            if self.paused == False:
+                self.paused = True
             else:
-                self.pause = False
+                self.paused = False
 
-    def _add_enemy(self,event=None,x=None,y=None):
-        if event == None:
-            self.enemies.append(Enemy(self.canvas,x=x,y=y))
-        else:
-            self.enemies.append(Enemy(self.canvas,x=event.x,y=event.y))
+    def _add_enemy(self):
+        self.enemies.append(Enemy(self.canvas,randint(0,500),randint(0,500)))
 
     def _set_bindings(self):
         for char in "wasd":
             self.root.bind("<KeyPress-{}>".format(char),self._pressed)
             self.root.bind("<KeyRelease-{}>".format(char),self._released)
             self.pressed[char] = False
-#        self.root.bind("<B1-Motion>",self._shoot)
         self.root.bind("<ButtonPress-1>", self._shoot)
-        self.root.bind("<ButtonPress-3>", self._add_enemy)
         self.root.bind("<Enter>", self._change_pause)
         self.root.bind("<Leave>", self._change_pause)
         self.root.bind("<space>", self._change_pause)
+
+    def _unset_bindings(self):
+        for char in "wasd":
+            self.root.unbind("<KeyPress-{}>".format(char))
+            self.root.unbind("<KeyRelease-{}>".format(char))
+        self.root.unbind("<ButtonPress-1>")
+        self.root.unbind("<Enter>")
+        self.root.unbind("<Leave>")
+        self.root.unbind("<space>")
 
     def _shoot(self,event):
         ox,oy = self.canvas.coords(self.player.img)
@@ -108,7 +123,7 @@ class Game:
         self.pressed[event.char] = False
 
 class Bullet:
-    def __init__(self,canvas,startx,startx,clickx,clicky):
+    def __init__(self,canvas,startx,starty,clickx,clicky):
         self.canvas = canvas
         self.x1 = startx
         self.y1 = starty
@@ -143,45 +158,24 @@ class Enemy:
         self.y = y
         self.canvas = canvas
         self.hp = 10
-        self.spritesheet = PhotoImage(file=".\images\\nazi.gif")
-        self.sprites = {}
+        self.sprites = esprites
         self.sprite_direction = "down"
         self.sprite_frame = 0
-        self._sprites()
         self.img =  self.canvas.create_image(self.x,self.y,image=self.sprites[self.sprite_direction][self.sprite_frame])
-
-    def _subimage(self,src,l,t,r,b):
-        dst = PhotoImage()
-        dst.tk.call(dst,'copy', src, '-from',l,t,r,b,'-to',0,0)
-        return dst
-
-    def _sprites(self):
-        for d,row in zip(['down','left','right','up'],xrange(4)):
-            for col in xrange(4):
-                if not self.sprites.get(d):
-                    self.sprites[d] = []
-                self.sprites[d].append(self._subimage(self.spritesheet,32*col,48*row,32*(col+1),48*(row+1)))
-
+        self.dead = False
 
     def contains_point(self,x,y):
         try:
             l,t,r,b = self.canvas.bbox(self.img)
         except TypeError:
             return False
-        if l <= x <= r and t <= y <= b:
-            return True
-        else:
-            return False
+        return l <= x <= r and t <= y <= b
 
     def hurt(self,dmg):
         self.hp -= dmg
         if self.hp <= 0:
-            g.enemies.remove(self)
-            g.kills += 1
-            g.spawn += 0.2
-            self.canvas.delete(self.img)
-            for _ in xrange(int(g.spawn)):
-                g._add_enemy(x=randint(0,500),y=randint(0,500))
+            self.dead = True
+
     def move_degrees(self,x1,y1,x2,y2):
         dx = x2-x1
         dy= y2-y1
@@ -204,7 +198,6 @@ class Enemy:
         elif change_y < -1:
             self.sprite_direction = "up"
         self.canvas.delete(self.img)
-        #print "{} {}\n{} {}\n-------------".format(self.x,self.y,change_x,change_y)
         self.x += change_x
         self.y += change_y
         self.img = self.canvas.create_image(self.x,self.y,image=self.sprites[self.sprite_direction][self.sprite_frame])
@@ -216,27 +209,13 @@ class Player:
         self.canvas = canvas
         self.x = x
         self.y = y
-        self.spritesheet = PhotoImage(file=".\images\indianajones.gif")
-        self.sprites = {}
         self.sprite_direction = "down"
         self.sprite_frame = 0
-        self._sprites()
+        self.sprites = psprites
         self.speed = 6
         self.img = self.canvas.create_image(self.x,self.y,image=self.sprites[self.sprite_direction][self.sprite_frame])
         
         self.redraw()
-
-    def _subimage(self,src,l,t,r,b):
-        dst = PhotoImage()
-        dst.tk.call(dst,'copy', src, '-from',l,t,r,b,'-to',0,0)
-        return dst
-
-    def _sprites(self):
-        for d,row in zip(['down','left','right','up'],xrange(4)):
-            for col in xrange(4):
-                if not self.sprites.get(d):
-                    self.sprites[d] = []
-                self.sprites[d].append(self._subimage(self.spritesheet,32*col,48*row,32*(col+1),48*(row+1)))
 
     def move_up(self):
         self.sprite_direction = "up"
@@ -256,6 +235,28 @@ class Player:
         self.img = self.canvas.create_image(self.x,self.y,image=self.sprites[self.sprite_direction][self.sprite_frame])
         self.sprite_frame = (self.sprite_frame+1)%4
 
+class LoadedSprite:
+    def __init__(self,spritesheet):
+        self.spritesheet = PhotoImage(file=spritesheet)
+        self.sprites = defaultdict(list)
+        self._sprites()
+
+    def _subimage(self,src,l,t,r,b):
+        dst = PhotoImage()
+        dst.tk.call(dst,'copy', src, '-from',l,t,r,b,'-to',0,0)
+        return dst
+
+    def _sprites(self):
+        for row,d in enumerate(['down','left','right','up']):
+            for col in xrange(4):
+                self.sprites[d].append(self._subimage(self.spritesheet,32*col,48*row,32*(col+1),48*(row+1)))
+    
+    def __getitem__(self,key):
+        return self.sprites[key]
+
+
 if __name__ == "__main__":
     g = Game()
+    psprites = LoadedSprite("C:\Users\Seans_laptop\indianajones.gif")
+    esprites = LoadedSprite("C:\Users\Seans_laptop\\nazi.gif")
     g.start()
