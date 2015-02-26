@@ -23,11 +23,11 @@ class Game:
         self.root = Tk()
         self.canvas = Canvas(width=500,height=500)
         self.canvas.pack()
-
         self._set_bindings()
     
     def _animate(self):
         dead = []
+
         if not self.paused:
             if not any(self.pressed[c] for c in 'wasd'):
                 pass
@@ -37,6 +37,7 @@ class Game:
                 if self.pressed["a"]: self.player.move_left()
                 if self.pressed["d"]: self.player.move_right()
                 self.player.redraw()
+
             for e in self.enemies:
                 if e.contains_point(self.player.x,self.player.y):
                     print "YOU LOST\nKILLS: {}".format(self.kills)
@@ -96,6 +97,7 @@ class Game:
             self.root.bind("<KeyPress-{}>".format(char),self._pressed)
             self.root.bind("<KeyRelease-{}>".format(char),self._released)
             self.pressed[char] = False
+
         self.root.bind("<ButtonPress-1>", self._shoot)
         self.root.bind("<Enter>", self._change_pause)
         self.root.bind("<Leave>", self._change_pause)
@@ -105,6 +107,7 @@ class Game:
         for char in "wasd":
             self.root.unbind("<KeyPress-{}>".format(char))
             self.root.unbind("<KeyRelease-{}>".format(char))
+
         self.root.unbind("<ButtonPress-1>")
         self.root.unbind("<Enter>")
         self.root.unbind("<Leave>")
@@ -122,7 +125,18 @@ class Game:
     def _released(self,event):
         self.pressed[event.char] = False
 
-class Bullet:
+class NPCBase:
+    def move_degrees(self,x1,y1,x2,y2):
+        dx = x2-x1
+        dy= y2-y1
+        rads = atan2(dy,dx)
+        rads %= 2*pi
+        return degrees(rads)
+
+    def xy_changes(self,d,m):
+        return m*cos(radians(d)),m*sin(radians(d))
+
+class Bullet(NPCBase):
     def __init__(self,canvas,startx,starty,clickx,clicky):
         self.canvas = canvas
         self.x1 = startx
@@ -141,18 +155,8 @@ class Bullet:
         self.x1 += change_x
         self.y1 += change_y
         self.img = self.canvas.create_oval(self.x1,self.y1,self.x1+6,self.y1+3,fill='black')
-
-    def move_degrees(self,x1,y1,x2,y2):
-        dx = x2-x1
-        dy= y2-y1
-        rads = atan2(dy,dx)
-        rads %= 2*pi
-        return degrees(rads)
-
-    def xy_changes(self,d,m):
-        return m*cos(radians(d)),m*sin(radians(d))
         
-class Enemy:
+class Enemy(NPCBase):
     def __init__(self,canvas,x,y):
         self.x = x
         self.y = y
@@ -175,16 +179,6 @@ class Enemy:
         self.hp -= dmg
         if self.hp <= 0:
             self.dead = True
-
-    def move_degrees(self,x1,y1,x2,y2):
-        dx = x2-x1
-        dy= y2-y1
-        rads = atan2(dy,dx)
-        rads %= 2*pi
-        return degrees(rads)
-
-    def xy_changes(self,d,m):
-        return m*cos(radians(d)),m*sin(radians(d))
 
     def redraw(self):
         self.degs = self.move_degrees(self.x,self.y,g.player.x,g.player.y)
@@ -214,7 +208,6 @@ class Player:
         self.sprites = psprites
         self.speed = 6
         self.img = self.canvas.create_image(self.x,self.y,image=self.sprites[self.sprite_direction][self.sprite_frame])
-        
         self.redraw()
 
     def move_up(self):
@@ -253,7 +246,6 @@ class LoadedSprite:
     
     def __getitem__(self,key):
         return self.sprites[key]
-
 
 if __name__ == "__main__":
     g = Game()
