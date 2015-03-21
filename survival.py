@@ -249,6 +249,6 @@ class LoadedSprite:
 
 if __name__ == "__main__":
     g = Game()
-    psprites = LoadedSprite("indianajones.gif")
-    esprites = LoadedSprite("nazi.gif")
+    psprites = LoadedSprite("images/indianajones.gif")
+    esprites = LoadedSprite("images/nazi.gif")
     g.start()
