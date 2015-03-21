@@ -3,8 +3,7 @@ Survival Game!
 
 Don't let the nazi's touch Indie!
 
-WASD move, left click shoots, right click adds an enemy (starts game for now)
-
+WASD move, left click shoots
 space pauses.
 
 TODO:
